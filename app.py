@@ -1,64 +1,70 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import subprocess
-import os
+from data_loader import load_data
+from data_analyzer import analyze_data
+from visualizer import create_visualizations
+from report_generator import generate_report
 
-# Configure Streamlit page layout
-st.set_page_config(layout="wide")
-st.title("AI Chatbot: Data Analysis and Chart Generator")
-st.write("Upload your data file (CSV or Excel) and generate interactive charts using Python and R.")
+st.set_page_config(page_title="Data Analysis Dashboard", layout="wide")
 
-# File uploader widget
-uploaded_file = st.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
+def main():
+    st.title("📊 Interactive Data Analysis Dashboard")
+    st.write("Upload your dataset (CSV, XLSX, or JSON) for instant analysis")
 
-if uploaded_file is not None:
-    # Read the file using Pandas
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            data = pd.read_csv(uploaded_file)
-        else:
-            data = pd.read_excel(uploaded_file)
-        st.subheader("Data Preview")
-        st.dataframe(data.head())
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-    
-    # Show data summary statistics
-    st.subheader("Data Summary")
-    st.write(data.describe())
-    
-    # Button to generate a chart using Python
-    if st.button("Generate Python Chart"):
-        if "category" in data.columns and "value" in data.columns:
-            fig, ax = plt.subplots(figsize=(8, 4))
-            # Group by the 'category' column and sum the 'value' column
-            summary = data.groupby("category")["value"].sum()
-            summary.plot(kind="bar", ax=ax)
-            ax.set_title("Python Generated Chart")
-            ax.set_xlabel("Category")
-            ax.set_ylabel("Sum of Value")
-            st.pyplot(fig)
-        else:
-            st.warning("The data does not contain the required columns: 'category' and 'value'.")
-    
-    # Button to generate a chart using R
-    if st.button("Generate R Chart"):
-        # Create a temporary folder if it does not exist
-        temp_folder = "temp"
-        os.makedirs(temp_folder, exist_ok=True)
-        
-        # Save the uploaded file temporarily for processing by the R script
-        file_path = os.path.join(temp_folder, uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        # Define the output path for the R-generated chart image
-        r_chart_path = os.path.join(temp_folder, "r_chart.png")
-        
-        # Call the R script using subprocess
+    # File upload
+    uploaded_file = st.file_uploader(
+        "Choose a file", 
+        type=["csv", "xlsx", "json"],
+        help="Upload your data file in CSV, Excel, or JSON format"
+    )
+
+    if uploaded_file is not None:
+        # Load data
         try:
-            subprocess.run(["Rscript", "generate_chart.R", file_path, r_chart_path], check=True)
-            st.image(r_chart_path, caption="R Generated Chart", use_column_width=True)
-        except subprocess.CalledProcessError as e:
-            st.error("An error occurred while generating the R chart.")
+            df = load_data(uploaded_file)
+            
+            # Display data preview
+            st.header("📋 Data Preview")
+            st.dataframe(df.head(), use_container_width=True)
+            
+            # Data info and analysis
+            st.header("📈 Data Analysis")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Dataset Info")
+                analysis_results = analyze_data(df)
+                st.write(f"Total Rows: {analysis_results['total_rows']}")
+                st.write(f"Total Columns: {analysis_results['total_columns']}")
+                
+                st.subheader("Data Types")
+                st.dataframe(analysis_results['dtypes_df'], use_container_width=True)
+                
+                st.subheader("Missing Values")
+                st.dataframe(analysis_results['missing_df'], use_container_width=True)
+            
+            with col2:
+                st.subheader("Numerical Summary")
+                st.dataframe(analysis_results['numeric_summary'], use_container_width=True)
+            
+            # Visualizations
+            st.header("🎨 Visualizations")
+            create_visualizations(df)
+            
+            # Report Generation
+            st.header("📑 Export Report")
+            if st.button("Generate Report"):
+                report_path = generate_report(df, analysis_results)
+                with open(report_path, "rb") as f:
+                    st.download_button(
+                        "Download Report",
+                        f,
+                        file_name="data_analysis_report.pdf",
+                        mime="application/pdf"
+                    )
+                
+        except Exception as e:
+            st.error(f"Error processing file: {str(e)}")
+
+if __name__ == "__main__":
+    main()
