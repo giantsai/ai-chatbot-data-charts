@@ -1,0 +1,6 @@
+streamlit==1.14.0
+pandas==1.4.2
+matplotlib==3.5.1
+plotly==5.6.0
+# Uncomment the line below if you decide to integrate R directly via rpy2
+# rpy2==3.4.5
